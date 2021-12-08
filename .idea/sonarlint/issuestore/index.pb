@@ -1,14 +1,10 @@
 
 9
 	README.md,8\e\8ec9a00bfd09b3190ac6b22251dbb1aa95a0579d
-~
-Napp/src/main/java/pt/josealm3ida/android/chessboardrecognition/MainActivity.kt,5\e\5e9b5257a6f9ff3a4fdf902ab5200682c0c018c9
 }
 Mapp/src/main/java/pt/josealm3ida/android/chessboardrecognition/board/Board.kt,4\c\4c72fcd115cc84b0b7f3ec888ab6765ffa563c5b
 
 Oapp/src/main/java/pt/josealm3ida/android/chessboardrecognition/pieces/Bishop.kt,9\0\904194de107cf7e5a1dfb383b0c524a2646c3101
-}
-Mapp/src/main/java/pt/josealm3ida/android/chessboardrecognition/pieces/Rook.kt,9\4\94896ad2269d704ec41a6af928f0b4d8470140d0
 ~
 Napp/src/main/java/pt/josealm3ida/android/chessboardrecognition/pieces/Queen.kt,e\1\e1abeba424ddbbc58a5bb0feb8a451ac5247d0c5
 ~
@@ -17,7 +13,3 @@ Napp/src/main/java/pt/josealm3ida/android/chessboardrecognition/pieces/Piece.kt
 Mapp/src/main/java/pt/josealm3ida/android/chessboardrecognition/pieces/Pawn.kt,5\f\5f537ccd82bd761cbea967f2cb649dc5ba9d59e9
 
 Oapp/src/main/java/pt/josealm3ida/android/chessboardrecognition/pieces/Knight.kt,1\2\12d8bf78582199d6fe786a3d33ac1a5fae6b8505
-}
-Mapp/src/main/java/pt/josealm3ida/android/chessboardrecognition/pieces/King.kt,2\d\2d3c54979d546496caed04263d83f567f600778c
-~
-Napp/src/main/java/pt/josealm3ida/android/chessboardrecognition/pieces/Color.kt,d\9\d945aecf70f42437db76b6db5262acd4c3c25783
