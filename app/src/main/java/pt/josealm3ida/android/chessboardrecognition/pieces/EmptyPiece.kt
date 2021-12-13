@@ -6,7 +6,7 @@ class EmptyPiece : Piece {
         const val DRAWABLE = android.R.color.transparent
     }
 
-    override var color = Color.NONE
-    override var figurine = FIGURINE
-    override var drawable = DRAWABLE
+    override val color = Color.NONE
+    override val figurine = FIGURINE
+    override val drawable = DRAWABLE
 }
