@@ -1,6 +1,6 @@
-package pt.josealm3ida.android.chessboardrecognition.pieces
+package pt.josealm3ida.android.chesser.pieces
 
-import pt.josealm3ida.android.chessboardrecognition.R
+import pt.josealm3ida.android.chesser.R
 
 class Bishop(override val color: Color) : Piece {
     companion object {

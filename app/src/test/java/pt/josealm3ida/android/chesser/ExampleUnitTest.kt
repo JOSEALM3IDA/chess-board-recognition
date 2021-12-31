@@ -1,4 +1,4 @@
-package pt.josealm3ida.android.chessboardrecognition
+package pt.josealm3ida.android.chesser
 
 import org.junit.Test
 

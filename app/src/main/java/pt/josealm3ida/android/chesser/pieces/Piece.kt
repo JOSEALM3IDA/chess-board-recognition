@@ -1,4 +1,4 @@
-package pt.josealm3ida.android.chessboardrecognition.pieces
+package pt.josealm3ida.android.chesser.pieces
 
 interface Piece {
     val color : Color

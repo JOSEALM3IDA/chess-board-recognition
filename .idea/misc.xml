@@ -3,12 +3,7 @@
   <component name="DesignSurface">
     <option name="filePathToZoomLevelMap">
       <map>
-        <entry key="..\:/Users/JOSEALM3IDA/Desktop/EML/chess-board-recognition/app/src/main/res/drawable-night/ic_king_black.xml" value="0.26614583333333336" />
-        <entry key="..\:/Users/JOSEALM3IDA/Desktop/EML/chess-board-recognition/app/src/main/res/drawable/ic_king_black.xml" value="0.264" />
-        <entry key="..\:/Users/JOSEALM3IDA/Desktop/EML/chess-board-recognition/app/src/main/res/drawable/ic_king_white.xml" value="0.26614583333333336" />
-        <entry key="..\:/Users/JOSEALM3IDA/Desktop/EML/chess-board-recognition/app/src/main/res/drawable/ic_launcher_background.xml" value="0.26614583333333336" />
-        <entry key="..\:/Users/JOSEALM3IDA/Desktop/EML/chess-board-recognition/app/src/main/res/layout/activity_main.xml" value="0.264" />
-        <entry key="..\:/Users/JOSEALM3IDA/Desktop/EML/chess-board-recognition/app/src/main/res/layout/cardview_item_square.xml" value="0.25" />
+        <entry key="..\:/Users/JOSEALM3IDA/Desktop/temp/app/src/main/res/drawable/ic_queen_white.xml" value="0.12222222222222222" />
       </map>
     </option>
   </component>
