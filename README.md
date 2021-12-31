@@ -1,2 +1,2 @@
-# Chess Board Recognition
-Materials for my Chess Board Recognition project.
+# Chesser
+Materials for my Chesser (chess board recognition with AI) project.
