@@ -8,3 +8,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "Chesser"
 include ':chesser'
+include ':opencv'
