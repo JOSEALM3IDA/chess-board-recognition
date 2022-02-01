@@ -238,10 +238,13 @@ class MainActivity : ComponentActivity() {
         val clusters = DBSCANClusterer<DoublePoint>(50.0, 1).cluster(pointsToCluster)
         val finalPoints = mutableListOf<Point>()
 
-        var smallestX = originalImgMat.cols().toDouble()
-        var biggestX = 0.0
-        var smallestY = originalImgMat.rows().toDouble()
-        var biggestY = 0.0
+        var smallestX = -1.0
+        var smallestY = -1.0
+        var biggestY = -1.0
+        var biggestX = -1.0
+
+        var smallestSum = originalImgMat.rows().toDouble() + originalImgMat.cols()
+        var biggestSum = 0.0
 
         for (cluster in clusters) {
             var avgX = 0.0
@@ -254,11 +257,20 @@ class MainActivity : ComponentActivity() {
             avgX /= cluster.points.size
             avgY /= cluster.points.size
 
-            if (avgX > biggestX) biggestX = avgX
-            if (avgY > biggestY) biggestY = avgY
-            if (avgX < smallestX) smallestX = avgX
-            if (avgY < smallestY) smallestY = avgY
+            Log.d(TAG, "$avgX $avgY")
 
+            val currSum = avgX + avgY
+            if (currSum < smallestSum) {
+                smallestSum = currSum
+                smallestX = avgX
+                smallestY = avgY
+            }
+
+            if (currSum > biggestSum) {
+                biggestSum = currSum
+                biggestX = avgX
+                biggestY = avgY
+            }
             val point = Point(avgX, avgY)
             finalPoints.add(point)
             Imgproc.circle(imgMat, point, 2, Scalar(0.0, 0.0, 255.0), 2)
@@ -266,12 +278,64 @@ class MainActivity : ComponentActivity() {
 
         Imgcodecs.imwrite("$imgDir/points.png", imgMat)
 
-        val deltaX = biggestX - smallestX
-        val deltaY = biggestY - smallestY
+        val deltaX = (biggestX - smallestX) / 8
+        val deltaY = (biggestY - smallestY) / 8
 
-        for (i in 0 until 8) {
-            for (j in 0 until 8) {
+        val extraWidth = deltaX / 3
+        val extraHeight = deltaY / 5
 
+        val widthShift = { i: Int ->
+            when (i) {
+                0 -> 20
+                1 -> 10
+                2 -> 0
+                3 -> 0
+                4 -> -10
+                5 -> -40
+                6 -> -75
+                else -> -110
+            }
+        }
+
+        val heightShift = { i: Int ->
+            when (i) {
+                0 -> 60
+                1 -> 45
+                2 -> 30
+                3 -> 0
+                4 -> 0
+                5 -> -15
+                6 -> -30
+                else -> -45
+            }
+        }
+
+
+        val roiDir = context.filesDir.absolutePath + "/" + Constants.ROI_DIR
+        File(roiDir).mkdirs()
+        for (x in 0 until 8) {
+            for (y in 0 until 8) {
+                var xTopLeft = smallestX + x * deltaX - extraWidth + widthShift(x)
+                xTopLeft = if (xTopLeft >= 0) xTopLeft else 0.0
+                xTopLeft = if (xTopLeft <= originalImgMat.cols()) xTopLeft else originalImgMat.cols().toDouble()
+
+
+                var yTopLeft = smallestY + y * deltaY - extraWidth + heightShift(y)
+                yTopLeft = if (yTopLeft >= 0) yTopLeft else 0.0
+                yTopLeft = if (yTopLeft <= originalImgMat.rows()) yTopLeft else originalImgMat.rows().toDouble()
+
+                val width = if (xTopLeft + deltaX + extraWidth <= originalImgMat.cols()) deltaX + extraWidth
+                            else originalImgMat.cols() - xTopLeft
+
+                val height = if (yTopLeft + deltaY + extraHeight <= originalImgMat.cols()) deltaY + extraHeight
+                             else originalImgMat.rows() - yTopLeft
+
+                val roiRect = Rect(Point(xTopLeft, yTopLeft), Size(width, height))
+
+                Log.d(TAG, "x: $xTopLeft y: $yTopLeft width: $width height: $height")
+
+                val roiNum = y * 8 + x
+                Imgcodecs.imwrite("$roiDir/ROI_$roiNum.png", originalImgMat.submat(roiRect))
             }
         }
 
@@ -369,63 +433,5 @@ class MainActivity : ComponentActivity() {
         */
         //Imgcodecs.imwrite("$imgDir/corners.png", harrisMat)
         */
-    }
-
-    private fun squaresExample(uri: Uri) {
-        val imgDir = context.filesDir.absolutePath + "/" + Constants.IMAGE_DIR
-        val imgFile = File(imgDir, "original.png");
-        imgFile.parentFile?.mkdirs()
-        imgFile.createNewFile()
-
-        val imgInputStream = contentResolver.openInputStream(uri)
-        imgInputStream.use { input ->
-            imgFile.outputStream().use { output ->
-                input?.copyTo(output)
-            }
-        }
-
-        val originalImgMat = Imgcodecs.imread(imgFile.absolutePath)
-        val imgMat = Mat()
-        originalImgMat.copyTo(imgMat)
-
-        Imgproc.cvtColor(imgMat, imgMat, Imgproc.COLOR_RGB2GRAY)
-        Imgproc.medianBlur(imgMat, imgMat, 5)
-        Imgcodecs.imwrite("$imgDir/blur.png", imgMat)
-
-        val sharpenKernelMat = Mat(3, 3, CvType.CV_32F)
-
-        for (i in 0..3) sharpenKernelMat.put(0, i, -1.0)
-        sharpenKernelMat.put(1, 0, -1.0);
-        sharpenKernelMat.put(1, 1, 9.0);
-        sharpenKernelMat.put(1, 2, -1.0);
-        for (i in 0..3) sharpenKernelMat.put(2, i, -1.0);
-
-        Imgproc.filter2D(imgMat, imgMat, -1, sharpenKernelMat)
-        Imgcodecs.imwrite("$imgDir/sharp.png", imgMat)
-
-        Imgproc.threshold(imgMat, imgMat, 160.0, 255.0, Imgproc.THRESH_BINARY_INV)
-        Imgcodecs.imwrite("$imgDir/threshold.png", imgMat)
-
-        val kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(5.0, 5.0))
-        Imgproc.morphologyEx(imgMat, imgMat, Imgproc.MORPH_CLOSE, kernel)
-        Imgcodecs.imwrite("$imgDir/close.png", imgMat)
-
-        val contours = ArrayList<MatOfPoint>()
-        val hierarchy = Mat()
-        Imgproc.findContours(imgMat, contours, hierarchy, Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
-
-        val minArea = 100
-        val maxArea = 1500
-        var imgNum = 0
-        val roiDir = context.filesDir.absolutePath + "/" + Constants.ROI_DIR
-        File(roiDir).mkdirs()
-        for (i in 0 until contours.size) {
-            val curr = contours[i]
-            val area = Imgproc.contourArea(curr)
-            if (area <= minArea || area >= maxArea) continue
-            val rect = Imgproc.boundingRect(curr)
-            Imgcodecs.imwrite("$roiDir/ROI_$imgNum.png", originalImgMat.submat(rect))
-            imgNum++
-        }
     }
 }
