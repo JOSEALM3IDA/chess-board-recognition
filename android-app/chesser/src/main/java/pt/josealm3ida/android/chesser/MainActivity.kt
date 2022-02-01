@@ -34,9 +34,7 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import org.opencv.core.Mat
-
-
-
+import kotlin.random.Random
 
 
 class MainActivity : ComponentActivity() {
@@ -286,31 +284,31 @@ class MainActivity : ComponentActivity() {
 
         val widthShift = { i: Int ->
             when (i) {
-                0 -> 20
-                1 -> 10
-                2 -> 0
-                3 -> 0
-                4 -> -10
-                5 -> -40
-                6 -> -75
-                else -> -110
+                0 -> 50
+                1 -> 35
+                2 -> 20
+                3 -> 10
+                4 -> 0
+                5 -> -15
+                6 -> -20
+                else -> -20
             }
         }
 
         val heightShift = { i: Int ->
             when (i) {
-                0 -> 60
-                1 -> 45
-                2 -> 30
-                3 -> 0
-                4 -> 0
-                5 -> -15
-                6 -> -30
-                else -> -45
+                0 -> -60
+                1 -> -50
+                2 -> -45
+                3 -> -35
+                4 -> -35
+                5 -> -35
+                6 -> -35
+                else -> -35
             }
         }
 
-
+        originalImgMat.copyTo(imgMat)
         val roiDir = context.filesDir.absolutePath + "/" + Constants.ROI_DIR
         File(roiDir).mkdirs()
         for (x in 0 until 8) {
@@ -327,7 +325,7 @@ class MainActivity : ComponentActivity() {
                 val width = if (xTopLeft + deltaX + extraWidth <= originalImgMat.cols()) deltaX + extraWidth
                             else originalImgMat.cols() - xTopLeft
 
-                val height = if (yTopLeft + deltaY + extraHeight <= originalImgMat.cols()) deltaY + extraHeight
+                val height = if (yTopLeft + deltaY + extraHeight <= originalImgMat.rows()) deltaY + extraHeight
                              else originalImgMat.rows() - yTopLeft
 
                 val roiRect = Rect(Point(xTopLeft, yTopLeft), Size(width, height))
@@ -335,9 +333,13 @@ class MainActivity : ComponentActivity() {
                 Log.d(TAG, "x: $xTopLeft y: $yTopLeft width: $width height: $height")
 
                 val roiNum = y * 8 + x
+                val randomColor = Scalar(Random.nextDouble(0.0, 255.0), Random.nextDouble(0.0, 255.0), Random.nextDouble(0.0, 255.0))
+                Imgproc.rectangle(imgMat, roiRect, randomColor, 3)
                 Imgcodecs.imwrite("$roiDir/ROI_$roiNum.png", originalImgMat.submat(roiRect))
             }
         }
+
+        Imgcodecs.imwrite("$imgDir/final.png", imgMat)
 
         /*
        val dst = Mat.zeros(imgMat.size(), CvType.CV_32F);
