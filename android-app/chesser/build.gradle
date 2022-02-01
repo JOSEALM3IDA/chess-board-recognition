@@ -63,6 +63,8 @@ dependencies {
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
 
+    implementation group: 'org.apache.commons', name: 'commons-math3', version: '3.6.1'
+
     implementation "com.github.skydoves:landscapist-glide:1.4.4"
 
     // OpenCV 4.5.5
