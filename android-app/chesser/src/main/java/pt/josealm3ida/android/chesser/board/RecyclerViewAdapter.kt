@@ -1,17 +1,5 @@
 package pt.josealm3ida.android.chesser.board
 
-import android.content.Context
-import android.view.LayoutInflater
-import android.view.View
-import android.view.ViewGroup
-import android.widget.ImageView
-import androidx.recyclerview.widget.RecyclerView
-import pt.josealm3ida.android.chesser.pieces.Piece
-import pt.josealm3ida.android.chesser.R
-import pt.josealm3ida.android.chesser.pieces.Color
-import pt.josealm3ida.android.chesser.pieces.EmptyPiece
-import pt.josealm3ida.android.chesser.pieces.King
-
 /*
 class RecyclerViewAdapter(private val mContext : Context) : RecyclerView.Adapter<RecyclerViewAdapter.MyViewHolder>() {
 

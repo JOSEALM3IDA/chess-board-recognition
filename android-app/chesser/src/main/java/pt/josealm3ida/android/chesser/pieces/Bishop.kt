@@ -2,7 +2,7 @@ package pt.josealm3ida.android.chesser.pieces
 
 import pt.josealm3ida.android.chesser.R
 
-class Bishop(override val color: Color) : Piece {
+class Bishop(override val pieceColor: PieceColor) : Piece {
     companion object {
         const val FIGURINE_WHITE = '♗';
         const val FIGURINE_BLACK = '♝';
@@ -11,7 +11,7 @@ class Bishop(override val color: Color) : Piece {
         const val DRAWABLE_BLACK = R.drawable.ic_bishop_black
     }
 
-    override val figurine: Char = if (color == Color.WHITE) FIGURINE_WHITE else FIGURINE_BLACK
-    override val drawable : Int = if (color == Color.WHITE) DRAWABLE_WHITE else DRAWABLE_BLACK
+    override val figurine: Char = if (pieceColor == PieceColor.WHITE) FIGURINE_WHITE else FIGURINE_BLACK
+    override val drawable : Int = if (pieceColor == PieceColor.WHITE) DRAWABLE_WHITE else DRAWABLE_BLACK
 
 }

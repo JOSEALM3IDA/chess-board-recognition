@@ -1,39 +1,60 @@
 package pt.josealm3ida.android.chesser
 
+import android.Manifest.permission.CAMERA
+import android.Manifest.permission.READ_EXTERNAL_STORAGE
+import android.app.Activity
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.ImageDecoder
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.activity.result.launch
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.skydoves.landscapist.glide.GlideImage
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
 import org.apache.commons.math3.ml.clustering.DBSCANClusterer
 import org.apache.commons.math3.ml.clustering.DoublePoint
 import org.opencv.android.OpenCVLoader
+import org.opencv.android.Utils
 import org.opencv.core.*
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
+import org.tensorflow.lite.DataType
+import org.tensorflow.lite.support.image.TensorImage
+import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
+import pt.josealm3ida.android.chesser.ml.Model
+import pt.josealm3ida.android.chesser.pieces.*
 import java.io.File
-import org.opencv.core.Scalar
 import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import org.opencv.core.Mat
 import kotlin.random.Random
 
 
@@ -42,98 +63,281 @@ class MainActivity : ComponentActivity() {
     private val TAG = "MainActivity"
 
     private lateinit var context: Context
-    private val imageUriState = mutableStateOf<Uri?>(null)
+    private lateinit var pieceMatrix: Array<Array<Piece>>
 
+    private val model : Model
+
+
+    @ExperimentalMaterialApi
+    @RequiresApi(Build.VERSION_CODES.P)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         OpenCVLoader.initDebug()
+
+        pieceMatrix = Array(8) { Array(8) { EmptyPiece() } }
 
         setContent {
             context = LocalContext.current;
+            MainScreen()
+        }
+    }
 
-            Column (
-                Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceEvenly,
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Row(
-                    Modifier.border(BorderStroke(2.dp, Color.Black)),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
+    var isCameraSelected = false
+    var imageUri: Uri? = null
+    var bitmap: Bitmap? = null
+
+    @RequiresApi(Build.VERSION_CODES.P)
+    @ExperimentalMaterialApi
+    @Composable
+    fun MainScreen() {
+        val context = LocalContext.current
+        val bottomSheetModalState = rememberModalBottomSheetState(initialValue = ModalBottomSheetValue.Hidden)
+        val coroutineScope = rememberCoroutineScope()
+
+        val galleryLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent()
+        ) { uri: Uri? ->
+            this.imageUri = uri
+            this.bitmap = null
+        }
+
+        val cameraLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.TakePicturePreview()
+        ) { btm: Bitmap? ->
+            this.bitmap = btm
+            this.imageUri = null
+        }
+
+        val permissionLauncher = rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission()
+        ) {
+            if (isCameraSelected) {
+                cameraLauncher.launch()
+            } else {
+                galleryLauncher.launch("image/*")
+            }
+
+            coroutineScope.launch {
+                bottomSheetModalState.hide()
+            }
+        }
+        
+        ModalBottomSheetLayout(
+            sheetContent = {
+                Box (
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .background(MaterialTheme.colors.primary.copy(0.08f))
                 ) {
-                    for (c in 0..7) {
-                        Column {
-                            for (r in 0..7) {
-                                Box(
-                                    Modifier
-                                        .background(if (r % 2 == 0) if (c % 2 == 0) Color.Black else Color.White else if (c % 2 == 0) Color.White else Color.Black)
-                                        .align(Alignment.CenterHorizontally)
-                                        .size(40.dp)
-                                )
+                    Column (
+                        verticalArrangement = Arrangement.SpaceEvenly,
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text (
+                            text = "Open Camera",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    when (PackageManager.PERMISSION_GRANTED) {
+                                        ContextCompat.checkSelfPermission(
+                                            context, CAMERA
+                                        ) -> {
+                                            cameraLauncher.launch()
+                                            coroutineScope.launch {
+                                                bottomSheetModalState.hide()
+                                            }
+                                        }
+                                        else -> {
+                                            isCameraSelected = true
+                                            permissionLauncher.launch(CAMERA)
+                                        }
+                                    }
+                                }
+                                .padding(15.dp),
+                            color = Color.Black,
+                            fontSize = 18.sp,
+                            fontFamily = FontFamily.SansSerif
+                        )
+
+                        Text (
+                            text = "Choose from Gallery",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    when (PackageManager.PERMISSION_GRANTED) {
+                                        ContextCompat.checkSelfPermission(
+                                            context, READ_EXTERNAL_STORAGE
+                                        ) -> {
+                                            cameraLauncher.launch()
+                                            coroutineScope.launch {
+                                                bottomSheetModalState.hide()
+                                            }
+                                        }
+                                        else -> {
+                                            isCameraSelected = false
+                                            permissionLauncher.launch(READ_EXTERNAL_STORAGE)
+                                        }
+                                    }
+                                }
+                                .padding(15.dp),
+                            color = Color.Black,
+                            fontSize = 18.sp,
+                            fontFamily = FontFamily.SansSerif
+                        )
+
+                        Text (
+                            text = "Cancel",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    coroutineScope.launch { bottomSheetModalState.hide() }
+                                }
+                                .padding(15.dp),
+                            color = Color.Black,
+                            fontSize = 18.sp,
+                            fontFamily = FontFamily.SansSerif
+                        )
+                    }
+                }
+           },
+
+            sheetState = bottomSheetModalState,
+            sheetShape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+            modifier = Modifier.background(MaterialTheme.colors.background)
+        ) {
+            Box (
+                contentAlignment = Alignment.BottomEnd,
+                modifier = Modifier
+            ) {
+                Spacer(Modifier.fillMaxHeight())
+
+                Button (
+                    onClick = {
+                        coroutineScope.launch {
+                            if (!bottomSheetModalState.isVisible) {
+                                bottomSheetModalState.show()
+                            } else {
+                                bottomSheetModalState.hide()
+                            }
+                        }
+                    },
+                    modifier = Modifier.padding(16.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.Create,
+                        contentDescription = "Create",
+                        modifier = Modifier.size(ButtonDefaults.IconSize)
+                    )
+
+                    Text (
+                        text = "Capture Board",
+                        modifier = Modifier.padding(8.dp),
+                        textAlign = TextAlign.Center,
+                        color = Color.White
+                    )
+                }
+            }
+
+            imageUri?.let {
+                if (!isCameraSelected) {
+                    val source = ImageDecoder.createSource(context.contentResolver, it)
+                    this.bitmap = ImageDecoder.decodeBitmap(source)
+                }
+            }
+
+            this.bitmap?.let {
+                parseBitmap()
+                ElementLayout()
+            }
+        }
+
+        bitmap?.let {
+            parseBitmap()
+            ElementLayout()
+        }
+    }
+
+    @Composable
+    fun ElementLayout() {
+        Column (
+            Modifier
+                .fillMaxSize()
+                .padding(top = 30.dp),
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Row(
+                Modifier.border(BorderStroke(2.dp, Color.Black)),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center
+            ) {
+                for (c in 0..7) {
+                    Column {
+                        for (r in 0..7) {
+                            Box(
+                                Modifier
+                                    .background(if (r % 2 == 0) if (c % 2 == 0) Color.Black else Color.White else if (c % 2 == 0) Color.White else Color.Black)
+                                    .align(Alignment.CenterHorizontally)
+                                    .size(30.dp)
+                            ) {
+                                val piece = pieceMatrix[c][r]
+                                if (piece.pieceColor != PieceColor.NONE) {
+                                        Image(
+                                            modifier = Modifier
+                                                .padding(3.dp),
+                                            painter = painterResource(id = piece.drawable),
+                                            contentDescription = piece.figurine.toString()
+                                        )
+                                    }
                             }
                         }
                     }
                 }
-
-                ButtonComposable()
-                UserImage()
             }
+
+            Image (
+                bitmap = bitmap!!.asImageBitmap(),
+                contentDescription = "Image",
+                alignment = Alignment.TopCenter,
+                modifier = Modifier
+                    .padding(top = 30.dp, bottom = 100.dp)
+                    .fillMaxWidth()
+                    .fillMaxHeight(),
+                contentScale = ContentScale.Fit
+            )
         }
     }
 
-    @Composable
-    fun ButtonComposable() {
-        MaterialTheme {
-            Button(
-                onClick = {
-                    selectImageLauncher.launch("image/*")
-                },
-                // Uses ButtonDefaults.ContentPadding by default
-                contentPadding = PaddingValues(
-                    start = 20.dp,
-                    top = 12.dp,
-                    end = 20.dp,
-                    bottom = 12.dp
-                )
-            ) {
-                // Inner content including an icon and a text label
-                Icon(
-                    Icons.Filled.Create,
-                    contentDescription = "Create",
-                    modifier = Modifier.size(ButtonDefaults.IconSize)
-                )
-                Spacer(Modifier.size(ButtonDefaults.IconSpacing))
-                Text("Open Gallery")
-            }
+    @ExperimentalMaterialApi
+    @RequiresApi(Build.VERSION_CODES.P)
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (resultCode != Activity.RESULT_OK) return
+
+        setContent {
+            MainScreen()
         }
     }
-    
-    @Composable
-    fun UserImage() {
-        if (imageUriState.value == null) return
-        GlideImage(imageModel = imageUriState.value)
-    }
 
-    private val selectImageLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri == null) return@registerForActivityResult
-        //imageUriState.value = uri
+    // Future me, please reorganize the code and split this monster function
+    private fun parseBitmap() {
+        val originalImgMat = Mat()
+        val bmp32 = bitmap?.copy(Bitmap.Config.ARGB_8888, true)
+        Utils.bitmapToMat(bmp32, originalImgMat)
+
+        Imgproc.cvtColor(originalImgMat, originalImgMat, Imgproc.COLOR_BGR2RGB)
+
         val imgDir = context.filesDir.absolutePath + "/" + Constants.IMAGE_DIR
-        val imgFile = File(imgDir, "original.png")
-        imgFile.parentFile?.mkdirs()
-        imgFile.createNewFile()
-
-        val imgInputStream = contentResolver.openInputStream(uri)
-        imgInputStream.use { input ->
-            imgFile.outputStream().use { output ->
-                input?.copyTo(output)
-            }
-        }
-
-        val originalImgMat = Imgcodecs.imread(imgFile.absolutePath)
+        val fileDir = File(imgDir)
+        fileDir.mkdirs()
+        Imgcodecs.imwrite("$imgDir/original.png", originalImgMat)
         val imgMat = Mat()
         originalImgMat.copyTo(imgMat)
 
-        //val bilateralFilteredImg = Mat()
         Imgproc.cvtColor(imgMat, imgMat, Imgproc.COLOR_RGB2GRAY)
 
         val blurMat = Mat(5, 5, CvType.CV_32F)
@@ -164,20 +368,6 @@ class MainActivity : ComponentActivity() {
             10,
             Core.KMEANS_RANDOM_CENTERS
         )
-
-
-        /*
-        val hLines = mutableListOf<DoubleArray?>()
-        val vLines = mutableListOf<DoubleArray?>()
-        for (x in 0 until houghMat.rows()) {
-            val row = houghMat.get(x, 0)
-            val theta = row[1]
-
-            if (theta < Math.PI / 4 || theta > Math.PI - Math.PI / 4)
-                vLines.add(row)
-            else
-                hLines.add(row)
-        }*/
 
         val hLinePoints = mutableListOf<Array<Point>>()
         val vLinePoints = mutableListOf<Array<Point>>()
@@ -255,8 +445,6 @@ class MainActivity : ComponentActivity() {
             avgX /= cluster.points.size
             avgY /= cluster.points.size
 
-            Log.d(TAG, "$avgX $avgY")
-
             val currSum = avgX + avgY
             if (currSum < smallestSum) {
                 smallestSum = currSum
@@ -297,22 +485,24 @@ class MainActivity : ComponentActivity() {
 
         val heightShift = { i: Int ->
             when (i) {
-                0 -> -60
-                1 -> -50
-                2 -> -45
-                3 -> -35
-                4 -> -35
-                5 -> -35
-                6 -> -35
-                else -> -35
+                0 -> -20
+                1 -> -20
+                2 -> -20
+                3 -> -15
+                4 -> -15
+                5 -> -15
+                6 -> -15
+                else -> -15
             }
         }
 
         originalImgMat.copyTo(imgMat)
         val roiDir = context.filesDir.absolutePath + "/" + Constants.ROI_DIR
+        val roiMats = mutableListOf<List<Mat>>()
         File(roiDir).mkdirs()
-        for (x in 0 until 8) {
-            for (y in 0 until 8) {
+        for (y in 0 until 8) {
+            val currRow = mutableListOf<Mat>()
+            for (x in 0 until 8) {
                 var xTopLeft = smallestX + x * deltaX - extraWidth + widthShift(x)
                 xTopLeft = if (xTopLeft >= 0) xTopLeft else 0.0
                 xTopLeft = if (xTopLeft <= originalImgMat.cols()) xTopLeft else originalImgMat.cols().toDouble()
@@ -330,110 +520,70 @@ class MainActivity : ComponentActivity() {
 
                 val roiRect = Rect(Point(xTopLeft, yTopLeft), Size(width, height))
 
-                Log.d(TAG, "x: $xTopLeft y: $yTopLeft width: $width height: $height")
-
                 val roiNum = y * 8 + x
                 val randomColor = Scalar(Random.nextDouble(0.0, 255.0), Random.nextDouble(0.0, 255.0), Random.nextDouble(0.0, 255.0))
                 Imgproc.rectangle(imgMat, roiRect, randomColor, 3)
-                Imgcodecs.imwrite("$roiDir/ROI_$roiNum.png", originalImgMat.submat(roiRect))
+
+                val resizedRoi = Mat()
+                Imgproc.resize(originalImgMat.submat(roiRect), resizedRoi, Size(256.0, 256.0))
+                currRow.add(resizedRoi)
+                Imgcodecs.imwrite("$roiDir/ROI_$roiNum.png", resizedRoi)
+            }
+            roiMats.add(currRow)
+        }
+
+        val getChosenPiece = { idx: Int ->
+            when (idx) {
+                0 -> Bishop(PieceColor.BLACK)
+                1 -> King(PieceColor.BLACK)
+                2 -> Knight(PieceColor.BLACK)
+                3 -> Pawn(PieceColor.BLACK)
+                4 -> Queen(PieceColor.BLACK)
+                5 -> Rook(PieceColor.BLACK)
+
+                7 -> Bishop(PieceColor.WHITE)
+                8 -> King(PieceColor.WHITE)
+                9 -> Knight(PieceColor.WHITE)
+                10 -> Pawn(PieceColor.WHITE)
+                11 -> Queen(PieceColor.WHITE)
+                12 -> Rook(PieceColor.WHITE)
+
+                else -> EmptyPiece()
             }
         }
 
-        Imgcodecs.imwrite("$imgDir/final.png", imgMat)
+        for (y in 0 until 8) {
+            for (x in 0 until 8) {
+                val roiMat = roiMats[y][x]
+                val bmp = Bitmap.createBitmap(roiMat.cols(), roiMat.rows(), Bitmap.Config.ARGB_8888)
+                Imgproc.cvtColor(roiMat, roiMat, Imgproc.COLOR_RGB2BGR)
+                Utils.matToBitmap(roiMat, bmp, true)
+                val tensorImage = TensorImage(DataType.FLOAT32)
+                tensorImage.load(bmp)
 
-        /*
-       val dst = Mat.zeros(imgMat.size(), CvType.CV_32F);
-       Imgproc.cornerHarris(imgMat, dst, 2, 3, 0.04)
+                val inputFeature0 = TensorBuffer.createFixedSize(intArrayOf(1, 256, 256, 3), DataType.FLOAT32)
+                inputFeature0.loadBuffer(tensorImage.buffer)
+                val outputs = model.process(inputFeature0).outputFeature0AsTensorBuffer.floatArray
 
-       val dstNorm = Mat()
-       val dstNormScaled = Mat()
+                var chosenIdx = 0
+                val logBuffer = StringBuffer(16)
+                for (j in 1 until 13) {
+                    logBuffer.append(outputs[j]).append(" ")
+                    if (outputs[j] > outputs[chosenIdx]) chosenIdx = j
+                }
 
-       Core.normalize(dst, dstNorm, 0.0, 255.0, Core.NORM_MINMAX);
-       Core.convertScaleAbs(dstNorm, dstNormScaled);
-
-       val dstNormData = FloatArray((dstNorm.total() * dstNorm.channels()).toInt())
-       dstNorm[0, 0, dstNormData]
-
-       Imgcodecs.imwrite("$imgDir/dstNormScaled.png", dstNormScaled)
-
-
-       for (i in 0 until dstNorm.rows()) {
-           for (j in 0 until dstNorm.cols()) {
-               if (dstNormData[i * dstNorm.cols() + j].toInt() > 200) {
-                   Imgproc.circle(
-                       dstNormScaled,
-                       Point(j.toDouble(), i.toDouble()),
-                       5,
-                       Scalar(0.0),
-                       2,
-                       8,
-                       0
-                   )
-               }
-           }
-       }
-
-
-
-        //Imgproc.threshold(dstNormScaled, dstNormScaled, 70.0, 255.0, THRESH_BINARY)
-        //dstNormScaled.convertTo(dstNormScaled, -1, 150.0, 0.0)
-        //Imgproc.morphologyEx(dstNormScaled, dstNormScaled, MORPH_DILATE, Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(2.0 * 2 + 1,2.0 * 2 + 1)))
-        val sharpenKernelMat = Mat(3, 3, CvType.CV_32F)
-
-        for (i in 0..3) sharpenKernelMat.put(0, i, -1.0)
-        sharpenKernelMat.put(1, 0, -1.0);
-        sharpenKernelMat.put(1, 1, 9.0);
-        sharpenKernelMat.put(1, 2, -1.0);
-        for (i in 0..3) sharpenKernelMat.put(2, i, -1.0);
-
-        val sharpened = Mat()
-        Imgproc.filter2D(dstNormScaled, sharpened, -1, sharpenKernelMat)
-
-        Imgproc.threshold(sharpened, sharpened, 60.0, 255.0, ADAPTIVE_THRESH_GAUSSIAN_C)
-
-        Imgcodecs.imwrite("$imgDir/sharp.png", sharpened)
-
-        val corners = Mat()
-        Imgproc.cornerSubPix(dstNormScaled, corners, Size(5.0,5.0), Size(-1.0, -1.0), TermCriteria(EPS + COUNT, 100, 0.001))
-
-
-        val result = Mat()
-        originalImgMat.copyTo(result)
-
-        val lines = Mat()
-        Imgproc.HoughLinesP(sharpened, lines, 5.0, 4.0, 7)
-        for (i in 0 until lines.cols()) {
-            val `val` = lines[0, i]
-            Imgproc.line(
-                result,
-                Point(`val`[0], `val`[1]),
-                Point(`val`[2], `val`[3]),
-                Scalar(0.0, 0.0, 255.0),
-                2
-            )
+                Log.d(TAG, "Output values ($y,$x): $logBuffer")
+                pieceMatrix[y][x] = getChosenPiece(chosenIdx)
+            }
         }
 
-        //Imgcodecs.imwrite("$imgDir/lines.png", result)
-        //Imgproc.bilateralFilter(imgMat, bilateralFilteredImg, 5, 200.0, 200.0)
+        //model.close()
 
-        //Imgproc.cvtColor(imgMat, imgMat, Imgproc.COLOR_RGB2GRAY)
-        //Imgproc.medianBlur(imgMat, imgMat, 5)
-        //Imgcodecs.imwrite("$imgDir/blur.png", imgMat)
-        //Imgcodecs.imwrite("$imgDir/bilateral.png", bilateralFilteredImg)
+        Imgcodecs.imwrite("$imgDir/final.png", imgMat)
 
-        /*
-        val patternSize = Size(7.0, 7.0)
-
-        val corners = MatOfPoint2f();
-        val foundChessboard = Calib3d.findChessboardCorners(bilateralFilteredImg, patternSize, corners, CALIB_CB_ADAPTIVE_THRESH)
-        Log.d(TAG, "Detected chessboard: $foundChessboard")
-        if (!foundChessboard) return@registerForActivityResult
-
-        Log.d(TAG, "Corners: $corners");
-
-        Calib3d.drawChessboardCorners(bilateralFilteredImg, patternSize, corners, foundChessboard)
-        */
-        //Imgcodecs.imwrite("$imgDir/corners.png", harrisMat)
-        */
+        val bmp = Bitmap.createBitmap(imgMat.cols(), imgMat.rows(), Bitmap.Config.ARGB_8888)
+        Imgproc.cvtColor(imgMat, imgMat, Imgproc.COLOR_RGB2BGR)
+        Utils.matToBitmap(imgMat, bmp)
+        bitmap = bmp
     }
 }
