@@ -65,8 +65,6 @@ class MainActivity : ComponentActivity() {
     private lateinit var context: Context
     private lateinit var pieceMatrix: Array<Array<Piece>>
 
-    private val model : Model
-
 
     @ExperimentalMaterialApi
     @RequiresApi(Build.VERSION_CODES.P)
@@ -552,6 +550,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        val model = Model.newInstance(context)
         for (y in 0 until 8) {
             for (x in 0 until 8) {
                 val roiMat = roiMats[y][x]
@@ -577,7 +576,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        //model.close()
+        model.close()
 
         Imgcodecs.imwrite("$imgDir/final.png", imgMat)
 
