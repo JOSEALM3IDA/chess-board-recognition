@@ -1,0 +1,1 @@
+android-app/chesser/src/main/ml/model.tflite filter=lfs diff=lfs merge=lfs -text
